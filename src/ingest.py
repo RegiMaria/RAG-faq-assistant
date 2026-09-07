@@ -1,0 +1,1 @@
+# Ingestão: carga + chunking + embeddings
