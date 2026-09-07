@@ -1,3 +1,11 @@
+<div align="center"> <img width="1584" height="396" alt="Banner rag-faq-assistant" src="https://github.com/user-attachments/assets/65605a1b-fcfb-46ec-accd-e4fa2e6a3604" /> </div>
+
+
+# FAQ Inteligente com RAG 
+
+Assistente que responde perguntas sobre um documento próprio (ex: FAQ do Imposto de Renda) usando RAG (Retrieval-Augmented Generation),
+100% com ferramentas locais e gratuitas.
+
 ## O que vamos aprender
  Conceitos de RAG na prática, como funciona embeddings/similaridade, estrutura básica de uma API REST, uso introdutório do LangChain.
 
