@@ -36,6 +36,9 @@ Reduzindo o risco de alucinação que um LLM sozinho teria ao "chutar" uma respo
 
 **Este é o projeto 1 de 3 para aprender sobre RAG.⭐**
 
+**Referências:**
+- [RAG - para baixinhos](https://lnkd.in/p/d3YQS3CZ)
+- [RAG - Introdução](https://lnkd.in/p/dNHGhfpH)
 
 
 Vem conhecer a comunidade Tech feminina: FirstCommit-m
