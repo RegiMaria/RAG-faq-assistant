@@ -38,4 +38,25 @@ def dividir_em_chunks(paginas):
     return chunks
 
 
-
+def gerar_e_salvar_embeddings(chunks):
+    """Gera embeddings com o modelo local do Ollama e persiste no Chroma."""
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+ 
+    vectorstore = Chroma.from_documents(
+        documents=chunks,
+        embedding=embeddings,
+        persist_directory=PERSIST_DIR,
+    )
+    print(f"Embeddings salvos em '{PERSIST_DIR}/'.")
+    return vectorstore
+ 
+ 
+def main():
+    paginas = carregar_documento(PDF_PATH)
+    chunks = dividir_em_chunks(paginas)
+    gerar_e_salvar_embeddings(chunks)
+    print("Ingestão concluída! O vector store está pronto para uso.")
+ 
+ 
+if __name__ == "__main__":
+    main()
