@@ -7,7 +7,7 @@ from langchain_chroma import Chroma
 # ----Configurações----
 
 PDF_PATH = "data/perguntas-respostas-irpf-2026.pdf"
-PERSIST_DIRECTORY = "chroma_db"
+PERSIST_DIR = "chroma_db"
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
 
