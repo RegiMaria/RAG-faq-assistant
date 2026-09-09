@@ -25,7 +25,17 @@ def carregar_documento(caminho: str):
     return paginas
 
 
-
+ 
+def dividir_em_chunks(paginas):
+    """Divide o documento em chunks menores para facilitar a busca semântica."""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+        separators=["\n\n", "\n", ". ", " ", ""],
+    )
+    chunks = splitter.split_documents(paginas)
+    print(f"Documento dividido em {len(chunks)} chunks.")
+    return chunks
 
 
 
