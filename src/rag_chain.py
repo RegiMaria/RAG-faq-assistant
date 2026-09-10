@@ -63,4 +63,34 @@ def montar_chain():
 
 
  
+def perguntar(pergunta: str) -> dict:
+    """
+    Função principal: recebe uma pergunta e devolve a resposta junto
+    com os trechos-fonte usados (para você conseguir verificar/citar).
+    """
+    chain, retriever = montar_chain()
+ 
+    resposta = chain.invoke(pergunta)
+    fontes = retriever.invoke(pergunta)
+ 
+    return {
+        "resposta": resposta,
+        "fontes": [
+            {
+                "trecho": doc.page_content[:200] + "...",
+                "pagina": doc.metadata.get("page", "desconhecida"),
+            }
+            for doc in fontes
+        ],
+    }
+ 
+ 
+if __name__ == "__main__":
+    pergunta = "Preciso declarar se recebi um imóvel de herança?"
+    resultado = perguntar(pergunta)
+    print("Resposta:", resultado["resposta"])
+    print("\nFontes usadas:")
+    for f in resultado["fontes"]:
+        print(f"- (página {f['pagina']}) {f['trecho']}")
+ 
  
