@@ -28,3 +28,14 @@ Contexto:
 Pergunta: {question}
  
 Resposta:"""
+
+
+def montar_retriever():
+    """Conecta no vector store já populado e retorna um retriever."""
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+    vectorstore = Chroma(
+        persist_directory=PERSIST_DIR,
+        embedding_function=embeddings,
+    )
+    return vectorstore.as_retriever(search_kwargs={"k": TOP_K})
+ 
