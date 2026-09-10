@@ -44,5 +44,23 @@ def formatar_contexto(documentos):
     """Junta os chunks recuperados em um único bloco de texto para o prompt."""
     return "\n\n---\n\n".join(doc.page_content for doc in documentos)
 
+def montar_chain():
+    """Monta a chain completa: retriever -> prompt -> LLM -> texto."""
+    retriever = montar_retriever()
+    llm = ChatOllama(model=LLM_MODEL, temperature=0) # Temperatura é uma configuração para deixar a geração mais determinística.
+    prompt = ChatPromptTemplate.from_template(PROMPT_TEMPLATE)
+ 
+    chain = (
+        {
+            "context": retriever | formatar_contexto,
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
+    )
+    return chain, retriever
+
+
  
  
