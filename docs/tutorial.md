@@ -20,7 +20,7 @@ Coloque o arquivo em `data/perguntas-respostas-irpf-2026.pdf` dentro do seu repo
 
 OBS: A princípio não comite este arquivo.
 
-## Arquivo de ingestão
+## 1. docs/Arquivo de ingestão
 O primeiro arquivo que vamos escrever é o `src/ingest.py`. Esse arquivo é responsável
 pela primeira etapa do seu RAG: pegar o PDF e transformá-lo em dados que possam ser pesquisados
 semanticamente.
@@ -130,3 +130,33 @@ investigar (verifique se o Ollama ainda está respondendo com
 
 **Próximo passo:** com a `chroma_db/` criada, o projeto está pronto pra
 `rag_chain.py` - que é quem vai *ler* esses vetores pra responder perguntas.
+
+## 2. docs/rag_chain.py
+Este aruivo implementa a fase de consulta do RAG, o que acontece a cada pergunta
+que o usuário faz, em contraste com o `ingest.py`, que roda só uma vez (fase de indexação).
+
+**O que ele faz**
+
+Ele junta as três peças que vimos no diagrama de consulta:
+
+1. Retriever  recebe a pergunta, transforma em vetor e busca os chunks mais parecidos.
+2. Prompt template - monta a mensagem final juntando pergunta + contexto recuperado,
+com a instrução de não inventar resposta.
+3. LLM (llama3.2:3b via Ollama) - lê esse prompt e gera a resposta
+
+No final, a função `perguntar()` devolve tanto a resposta quanto as
+fontes usadas (trecho + página), pra você conseguir verificar de onde veio
+cada informação.
+
+**Por que ele depende do chroma_db/**
+
+Porque o retriever não gera conhecimento novo.
+Ele só busca entre o que já foi indexado.
+O chroma_db/ é justamente o "banco de dados" com os
+1513 chunks do PDF já transformados em vetores pelo ingest.py
+
+[link]Para saber mais consulte o material de estudos aqui.
+
+Em resumo: `ingest.py` escreve no `chroma_db/`; o `rag_chain.py` lê dele.
+
+
