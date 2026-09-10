@@ -1,3 +1,12 @@
+"""
+02- rag_chain.py  Monta a chain de RAG: retriever + prompt + LLM local.
+ 
+Depende de: chroma_db/ já existir e estar populado (rode src/ingest.py antes).
+ 
+Como testar isoladamente (sem precisar da API ainda):
+    python -c "from src.rag_chain import perguntar; print(perguntar('Preciso declarar herança de imóvel?'))"
+"""
+
 from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
