@@ -1,5 +1,5 @@
 """
-ingest.py - Ingestão do PDF fonte para o pipeline RAG.
+01 - ingest.py - Ingestão do PDF fonte para o pipeline RAG.
 
 Fluxo:
 1. Carrega o PDF (data/perguntas-respostas-irpf-2026.pdf)
