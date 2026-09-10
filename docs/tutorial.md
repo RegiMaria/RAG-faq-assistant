@@ -132,6 +132,7 @@ investigar (verifique se o Ollama ainda está respondendo com
 `rag_chain.py` - que é quem vai *ler* esses vetores pra responder perguntas.
 
 ## 2. docs/rag_chain.py
+
 Este aruivo implementa a fase de consulta do RAG, o que acontece a cada pergunta
 que o usuário faz, em contraste com o `ingest.py`, que roda só uma vez (fase de indexação).
 
@@ -159,4 +160,35 @@ O chroma_db/ é justamente o "banco de dados" com os
 
 Em resumo: `ingest.py` escreve no `chroma_db/`; o `rag_chain.py` lê dele.
 
+Esse script tem 4 funções:
+1. montar_retriever()
+Essa função é responsável por abrir o banco vetorial e preparar a busca.
 
+2. formatar_contexto()
+Essa função recebe os documentos encontrados pelo retriever.
+A função junta tudo.
+
+3. montar_chain()
+Essa é a principal função de montagem do RAG.
+Ela monta toda a sequência:
+
+```
+Retriever
+   ↓
+Contexto
+   ↓
+Prompt
+   ↓
+LLM
+   ↓
+Texto
+```
+Atenção na:
+`llm = ChatOllama(model=LLM_MODEL, temperature=0)`
+
+Temperatura é uma configuração para deixar a geração mais determinística.
+Não seja criativo. Responda com base no documento.
+
+4.Perguntar()
+Recebe a pergunta, executa o RAG e devolve resposta + fontes.
+Essa função monta toda a estrutura que estudamos.
