@@ -38,4 +38,11 @@ def montar_retriever():
         embedding_function=embeddings,
     )
     return vectorstore.as_retriever(search_kwargs={"k": TOP_K})
+
+
+def formatar_contexto(documentos):
+    """Junta os chunks recuperados em um único bloco de texto para o prompt."""
+    return "\n\n---\n\n".join(doc.page_content for doc in documentos)
+
+ 
  
