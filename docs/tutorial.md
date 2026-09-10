@@ -192,3 +192,80 @@ Não seja criativo. Responda com base no documento.
 4.Perguntar()
 Recebe a pergunta, executa o RAG e devolve resposta + fontes.
 Essa função monta toda a estrutura que estudamos.
+
+Com este arquivo pronto, vmaos testar se o RAG em si funciona.
+O RAG NÃO A API.
+
+## Testando RAG
+
+Se você pular direto pro próximo .py sem testar isso, 
+e algo der errado depois, você não vai saber se o problema 
+é na geração da resposta ou na camada da API por cima dela.
+
+Rode: `python3 src/rag_chain.py`
+
+Lembrando que a pergunta é:
+`pergunta = "Preciso declarar se recebi um imóvel de herança?"`
+
+Atenção: Pode demorar um pouco.
+É normal a tela ficar "parada" sem nada aparecer,
+porque diferente do ingest.py (que tem print a cada etapa),
+o `rag_chain.py` só imprime no final, depois que tudo terminou.
+
+**O que está acontecendo por trás, nessa ordem**
+
+1. Conectar no `chroma_db/`. Rápido, só abre a pasta já existente (segundos)
+2. Transformar sua pergunta em vetor. Rápido, uma chamada só ao `nomic-embed-text`
+3. Buscar os chunks mais parecidos. Rápido, é busca por similaridade matemática, não passa pelo LLM
+4. Gerar a resposta com o llama3.2:3b. Essa é a etapa lenta. É o LLM "pensando" e escrevendo
+a resposta palavra por palavra, rodando 100% na sua CPU (sem GPU, no meu caso WSL),
+o que é bem mais devagar que os provedores de nuvem que nos ja usamos (ChatGPT, claude etc)
+
+O código chama isso duas vezes (uma pra gerar a resposta, outra pra pegar as fontes).
+O que também soma no tempo total.
+
+Como confirmar que não travou sem interromper: `ollama list`
+
+Verifique se funcionou.
+Verifique a resposta. O que está bom ou não?
+O que vale investigar?
+Documente para investigar depois.
+
+### Teste 1: "Preciso declarar herança de imóvel?"
+```
+- Resposta: correta
+- Fontes: 2 de 4 relevantes (páginas 261, 263)
+- página 32 trouxe conteúdo não relacionado (autenticação no portal gov.br)
+- Hipótese: chunking genérico por caractere pode estar misturando 
+conteúdo de perguntas diferentes num mesmo chunk
+```
+
+
+Nesse caso, a da página 32 é sobre autenticação no portal gov.br,
+não tem nada a ver com a pergunta.
+Isso é sinal de que o retriever não está trazendo os chunks mais relevantes
+o tempo todo, mesmo a resposta final tendo saído certa (o LLM "adivinhou"
+certo apesar do contexto parcialmente ruim).
+
+O que devemos olhar:
+`RecursiveCharacterTextSplitter`
+
+Lembra da conversa sobre chunking? Isso é exatamente aquele ponto:
+o `RecursiveCharacterTextSplitter` genérico corta por tamanho de caractere,
+sem saber onde uma pergunta/resposta do documento começa ou termina.
+Isso pode gerar chunks que misturam conteúdo de assuntos diferentes,
+prejudicando a busca por similaridade.
+
+Antes de ajusta o chuncking, faça mais 3 perguntas pra
+ver se esse padrão se repete.
+
+**Próximo arquivo: main.py**
+
+Por quê: é o único arquivo que falta na cadeia de dependências.
+Ele depende de `rag_chain.py` (que já está pronto e testado).
+A função dele é "encapar" a perguntar() numa rota HTTP (POST /chat),
+pra que o pipeline deixe de ser algo que só roda via linha de comando 
+e vire uma API de verdade, que qualquer front-end (ou o Swagger) consegue chamar.
+
+Depois dele, a cadeia principal do Projeto 1 está tecnicamente completa.
+O que sobra são as issues 7, 8, 9 e 10 (testar, opcionalmente Streamlit, README final, lições aprendidas).
