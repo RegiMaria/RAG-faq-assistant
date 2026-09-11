@@ -72,3 +72,12 @@ def chat(request: PerguntaRequest):
         resposta=resultado["resposta"],
         fontes=[Fonte(**f) for f in resultado["fontes"]],
     )
+
+
+# --- Rota extra opcional: health check ---
+# Mas não estava nos critérios de aceite, mas é uma boa prática comum em APIs:
+# uma rota simples pra confirmar rapidamente "a API está de pé?" sem
+# precisar chamar o LLM inteiro.
+@app.get("/")
+def health_check():
+    return {"status": "ok", "mensagem": "API do rag-faq-assistant está rodando."}
