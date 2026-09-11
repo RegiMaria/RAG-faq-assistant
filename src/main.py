@@ -30,3 +30,23 @@ class RespostaResponse(BaseModel):
     """Formato da resposta devolvida pela API."""
     resposta: str
     fontes: list[Fonte]
+
+
+# --- Rota principal ---
+@app.post("/chat", response_model=RespostaResponse)
+def chat(request: PerguntaRequest):
+    """
+    Recebe uma pergunta e devolve a resposta gerada pela chain de RAG,
+    junto com as fontes (trechos do documento) usadas para respondê-la.
+    """
+    pergunta = request.pergunta.strip()
+ 
+    # --- Tratamento de erro: pergunta vazia ---
+    # HTTPException(status_code=400, ...) devolve um erro "400 Bad Request",
+    # que significa "o cliente mandou algo inválido". É diferente de um erro
+    # 500, que significaria "o servidor quebrou por conta própria".
+    if not pergunta:
+        raise HTTPException(
+            status_code=400,
+            detail="A pergunta não pode estar vazia.",
+        )
