@@ -17,3 +17,10 @@ app = FastAPI(
 class PerguntaRequest(BaseModel):
     """Formato esperado do corpo da requisição enviada pelo cliente."""
     pergunta: str
+
+
+
+class Fonte(BaseModel):
+    """Cada trecho-fonte usado para montar a resposta."""
+    trecho: str
+    pagina: str
