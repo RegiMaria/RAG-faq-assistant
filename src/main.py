@@ -24,3 +24,9 @@ class Fonte(BaseModel):
     """Cada trecho-fonte usado para montar a resposta."""
     trecho: str
     pagina: str
+
+
+class RespostaResponse(BaseModel):
+    """Formato da resposta devolvida pela API."""
+    resposta: str
+    fontes: list[Fonte]
