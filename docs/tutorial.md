@@ -269,3 +269,6 @@ e vire uma API de verdade, que qualquer front-end (ou o Swagger) consegue chamar
 
 Depois dele, a cadeia principal do Projeto 1 está tecnicamente completa.
 O que sobra são as issues 7, 8, 9 e 10 (testar, opcionalmente Streamlit, README final, lições aprendidas).
+
+## 3. Arquivo `docs/main.py`
+

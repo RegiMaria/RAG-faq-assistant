@@ -50,3 +50,25 @@ def chat(request: PerguntaRequest):
             status_code=400,
             detail="A pergunta não pode estar vazia.",
         )
+
+# --- Tratamento de erro: problema ao consultar o vector store / LLM modelo ---
+# Cobre problemas como, por exemplo, o vector store não estar rodando,
+# o vector store estar lento, ou o modelo LLM não estar disponível.
+# O vector store não ter sido criado ainda 
+# (por exemplo, se o usuário não rodou `python src/ingest.py` antes de rodar a API).
+    try:
+        resultado = perguntar(pergunta)
+    except Exception as erro:
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Não foi possível consultar o documento. Verifique se o "
+                "Ollama está rodando e se o chroma_db/ foi gerado "
+                f"(rode src/ingest.py). Detalhe técnico: {erro}"
+            ),
+        )
+ 
+    return RespostaResponse(
+        resposta=resultado["resposta"],
+        fontes=[Fonte(**f) for f in resultado["fontes"]],
+    )
