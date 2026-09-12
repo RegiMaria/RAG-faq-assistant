@@ -484,20 +484,107 @@ e o modelo "preencheu a lacuna" com conhecimento próprio, ignorando a instruç�
 
 **Causa raiz (dois problemas):**
 1. `Chroma(persist_directory=..., ...)` não lança erro se a pasta não
-   existe — ele cria um banco vazio silenciosamente. Por isso o
-   `try/except` do `main.py` nunca disparava.
+   existe. Ele cria um banco vazio silenciosamente.
+ Por isso o  `try/except` do `main.py` nunca disparava.
+
 2. Sem chunks recuperados, o LLM deveria dizer "não encontrei" (conforme
    o prompt), mas alucinou uma resposta afirmativa mesmo com contexto
-   vazio — evidência de que a instrução do prompt não é 100% garantida.
+   vazio. Evidência de que a instrução do prompt não é 100% garantida.
 
 **Correção:** `rag_chain.py` agora verifica explicitamente se `chroma_db/`
 existe antes de conectar, levantando `FileNotFoundError` com mensagem
-clara — isso ativa corretamente o tratamento de erro no `main.py`.
+clara, isso ativa corretamente o tratamento de erro no `main.py`.
 
 **Por que isso importa:** esse foi o achado mais valioso dos testes até
-agora — mostra que "o código não deu erro" não significa "o sistema está
+agora, certo? mostra que "o código não deu erro" não significa "o sistema está
 seguro". Alucinação silenciosa é pior que um crash visível.
 
 **Retestar após a correção:**
 - [ ] `chroma_db/` renomeada → confirmar que agora vem `500` com a
       mensagem certa
+
+
+## Duas mudanças pontuais no rag_chain.py:
+
+**1. Adicionei import os no topo**
+```python
+import os
+from langchain_ollama import OllamaEmbeddings, ChatOllama
+```
+Por quê: precisei da função `os.path.exists()` pra verificar se a pasta existe,
+e ela vem do módulo os (biblioteca padrão do Python, não precisa instalar nada).
+
+**2. Adicionei uma checagem no início da função montar_retriever()**
+
+Antes:
+
+```python
+def montar_retriever():
+    """Conecta no vector store já populado e retorna um retriever."""
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+    vectorstore = Chroma(
+        persist_directory=PERSIST_DIR,
+        embedding_function=embeddings,
+    )
+    return vectorstore.as_retriever(search_kwargs={"k": TOP_K})
+
+Depois:
+
+python
+def montar_retriever():
+    """Conecta no vector store já populado e retorna um retriever."""
+    if not os.path.exists(PERSIST_DIR):
+        raise FileNotFoundError(
+            f"'{PERSIST_DIR}/' não existe. Rode 'python3 src/ingest.py' "
+            "antes de usar a chain de RAG."
+        )
+    embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
+    vectorstore = Chroma(
+        persist_directory=PERSIST_DIR,
+        embedding_function=embeddings,
+    )
+    return vectorstore.as_retriever(search_kwargs={"k": TOP_K})
+```
+
+**Por que essa checagem é necessária**
+
+Lembra do que descobrimos no teste?
+O Chroma(...) não reclama se a pasta `chroma_db/` não existir.
+ele silenciosamente cria um banco vazio.
+Isso significa que, sem essa checagem manual,
+o código nunca soube que havia um problema,
+e seguiu em frente com um retriever "vazio", 
+daí o LLM ter alucinado uma resposta sem nenhum contexto real.
+
+Agora, antes mesmo de chegar no Chroma, eu confiro se a pasta existe.
+Se não existir, levantamos um erro (FileNotFoundError),
+e é esse erro que o try/except do main.py vai capturar,
+devolvendo o 500 com a mensagem clara que já tínhamos escrito lá.
+Ou seja: a correção não foi no main.py (que já estava certo),
+foi em fazer o `rag_chain.py` falhar de propósito e de forma visível,
+em vez de falhar silenciosamente.
+
+## Repita o teste do Caso 2
+
+No temrinal: 
+```bash
+mv chroma_db chroma_db_bak
+```
+
+Volte no Swagger (http://127.0.0.1:8000/docs) e rode de novo:
+```json
+{ "pergunta": "Preciso declarar herança de imóvel?" }
+```
+
+O que deve acontecer agora: código 500, com o detail mostrando
+a mensagem do main.py que menciona rodar o ingest.py;
+bem diferente do 200 com alucinação que apareceu antes.
+
+Depois, não esqueça de desfazer:
+
+```bash
+mv chroma_db_bak chroma_db
+```
+Se quiser, aproveite e rode de novo o Caso 1 (pergunta vazia)
+só pra confirmar que continua 400 normalmente.
+
