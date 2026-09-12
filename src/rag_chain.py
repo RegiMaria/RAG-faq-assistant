@@ -7,6 +7,7 @@ Como testar isoladamente (sem precisar da API ainda):
     python -c "from src.rag_chain import perguntar; print(perguntar('Preciso declarar herança de imóvel?'))"
 """
 
+import os
 from langchain_ollama import OllamaEmbeddings, ChatOllama
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
@@ -21,7 +22,7 @@ TOP_K = 4  # quantos chunks recuperar por pergunta
 
 # --- Prompt template ---
 # Instrui o modelo a responder SOMENTE com base no contexto recuperado,
-# reduzindo o risco de alucinação - ponto central do "problema de negócio"
+# reduzindo o risco de alucinação — ponto central do "problema de negócio"
 # deste projeto.
 PROMPT_TEMPLATE = """Você é um assistente que responde perguntas sobre o
 Imposto de Renda com base EXCLUSIVAMENTE no contexto abaixo, extraído do
@@ -40,6 +41,11 @@ Resposta:"""
 
 def montar_retriever():
     """Conecta no vector store já populado e retorna um retriever."""
+    if not os.path.exists(PERSIST_DIR):
+        raise FileNotFoundError(
+            f"'{PERSIST_DIR}/' não existe. Rode 'python3 src/ingest.py' "
+            "antes de usar a chain de RAG."
+        )
     embeddings = OllamaEmbeddings(model=EMBEDDING_MODEL)
     vectorstore = Chroma(
         persist_directory=PERSIST_DIR,
