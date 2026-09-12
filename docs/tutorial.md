@@ -272,3 +272,232 @@ O que sobra são as issues 7, 8, 9 e 10 (testar, opcionalmente Streamlit, README
 
 ## 3. Arquivo `docs/main.py`
 
+**O que tem nesse aquivo?**
+
+é a camada de API do projeto.
+o arquivo que expõe a chain de RAG (`rag_chain.py`)
+como um endpoint HTTP, usando o framework FastAPI.
+
+**Pra que serve:** até aqui, o `rag_chain.py` só podia ser usado rodando
+um script Python na linha de comando. O `main.py` transforma isso em uma
+API de verdade: qualquer cliente HTTP (navegador, Postman, um front-end
+em React, outro serviço) consegue mandar uma pergunta e receber uma
+resposta em JSON, sem precisar saber Python nem abrir o código.
+
+**Como se integra com o que já fizemos:**
+```
+ingest.py → chroma_db/ → rag_chain.py → main.py → cliente (Swagger/HTTP)
+(indexa)   (armazena)    (busca+gera)   (expõe via API)
+
+```
+
+O `main.py` não reimplementa nada do RAG, ele só importa a função
+`perguntar()` de `rag_chain.py` e chama ela dentro de uma rota:
+
+```python
+from src.rag_chain import perguntar
+```
+Se o `chroma_db/` não existir (esqueceram de rodar o `ingest.py`) ou o
+`rag_chain.py` tiver algum problema, o `main.py` não tem como funcionar,
+essa é a dependência direta.
+
+**Principais conceitos do FastAPI usados aqui:**
+
+| Conceito | O que faz | Onde aparece no arquivo |
+|---|---|---|
+| `FastAPI()` | Cria a aplicação | `app = FastAPI(...)` |
+| `BaseModel` (Pydantic) | Define e valida o formato dos dados de entrada/saída | `PerguntaRequest`, `RespostaResponse`, `Fonte` |
+| `@app.post("/chat")` | Registra a rota — o que roda quando chega um POST em `/chat` | função `chat()` |
+| `HTTPException` | Devolve um erro estruturado pro cliente (com código HTTP) | tratamento de pergunta vazia (400) e falha de consulta (500) |
+| `/docs` | Interface Swagger gerada automaticamente pelo FastAPI | não precisa escrever nada, vem de graça |
+
+**Critérios de aceite da issue #6, e como o código atende cada um:**
+- ✅ `POST /chat` recebendo pergunta e devolvendo resposta → rota `chat()`
+- ✅ Swagger (`/docs`) funcionando → gerado automaticamente pelo FastAPI
+  a partir dos tipos declarados
+- ✅ Tratamento básico de erro:
+  - pergunta vazia → `HTTPException(400, ...)`
+  - doc não encontrado / Ollama fora do ar → `try/except` em volta de
+    `perguntar()`, devolvendo `HTTPException(500, ...)` com mensagem clara
+
+**Como testar:**
+```bash
+uvicorn src.main:app --reload
+```
+Depois abrir `http://127.0.0.1:8000/docs` e testar a rota `POST /chat`
+diretamente pela interface.
+
+### Arquitetura
+
+```
+             ┌──────────────┐
+             │     PDF      │
+             └──────┬───────┘
+                    ↓
+             ┌──────────────┐
+             │  ingest.py   │
+             └──────┬───────┘
+                    ↓
+             ┌──────────────┐
+             │    Chroma    │
+             └──────┬───────┘
+                    ↑
+                    │
+┌──────────┐   ┌────┴───────┐
+│ Usuário  │ → │  main.py   │
+└──────────┘   │  FastAPI   │
+               └────┬───────┘
+                    ↓
+             ┌──────────────┐
+             │ rag_chain.py │
+             └──────┬───────┘
+                    ↓
+             ┌──────────────┐
+             │   Ollama     │
+             │ Llama 3.2 3B │
+             └──────────────┘
+                    ↓
+              resposta + fontes
+```
+Em resumo: 
+
+O `main.py` é a camada de API: recebe e valida a pergunta
+via FastAPI, chama a função `perguntar()` da camada de RAG
+e devolve uma resposta estruturada com a resposta do LLM
+e os trechos-fonte.
+
+![Diagrama](image.png)
+
+`ingest.py` gera o `chroma_db/`, o `rag_chain.py` lê dele pra buscar+gerar a resposta,
+o `main.py` encapa isso numa rota HTTP, e por fim o cliente (Swagger, Postman, 
+ou um front-end futuro) chama tudo via /chat.
+
+## Teste de API
+
+Depois de subir o servidor (`uvicorn src.main:app --reload`), testei a rota
+`POST /chat` diretamente pelo Swagger (`/docs`).
+
+### Bug encontrado e corrigido
+
+Na primeira tentativa, a API retornou `500 Internal Server Error`:
+
+```
+pydantic_core._pydantic_core.ValidationError: 1 validation error for Fonte
+pagina
+Input should be a valid string [type=string_type, input_value=261, input_type=int]
+```
+
+**Causa:** o `PyPDFLoader` guarda o número da página como `int` em
+`doc.metadata["page"]`, mas o modelo `Fonte` (em `main.py`) espera uma
+`str`. O Pydantic valida o tipo e rejeita.
+
+**Correção:** em `rag_chain.py`, na função `perguntar()`, converti o valor
+explicitamente:
+```python
+"pagina": str(doc.metadata.get("page", "desconhecida")),
+```
+
+**Observação:** o `try/except` do `main.py` não capturou esse erro porque
+ele só envolve a chamada a `perguntar()` , o erro acontecia depois, ao
+montar `Fonte(**f)`. Fica registrado como aprendizado sobre escopo de
+`try/except`.
+
+### Teste funcional
+
+**Requisição:**
+```json
+{ "pergunta": "Preciso declarar herança de imóvel?" }
+```
+
+**Resposta (200 OK):**
+```json
+{
+  "resposta": "Não encontrei essa informação no documento \"Perguntas e Respostas IRPF 2026\" da Receita Federal.",
+  "fontes": [
+    { "trecho": "...", "pagina": "261" },
+    { "trecho": "...", "pagina": "263" },
+    { "trecho": "...", "pagina": "261" },
+    { "trecho": "...", "pagina": "312" }
+  ]
+}
+```
+
+**Análise:** a API funcionou de ponta a ponta (validação → chain →
+resposta estruturada). O resultado em si é interessante: o modelo preferiu
+dizer "não encontrei" a inventar uma resposta, comportamento correto e
+intencional (ver seção "Problema de negócio" do README).
+
+Porém, a mesma pergunta reformulada como *"Preciso declarar se recebi um
+imóvel de herança?"* (testada isoladamente em `rag_chain.py`) retornou
+"Sim", com fontes parcialmente diferentes. Isso indica que o retriever é
+sensível à formulação exata da pergunta, ponto que será investigado com
+mais profundidade na issue #7 (avaliação).
+
+### Casos ainda a testar
+- [ ] Pergunta vazia (`{"pergunta": ""}`) → esperado: `400`
+- [ ] `chroma_db/` ausente/renomeada → esperado: `500` com mensagem clara
+
+
+## Resultado dos testes:
+
+**Caso 1: pergunta vazia**  ✅ perfeito
+
+```json
+{ "detail": "A pergunta não pode estar vazia." }
+```
+Código 400, exatamente como devia ser:
+erro rápido, sem passar pelo LLM, com mensagem clara pro cliente.
+
+
+**Caso 2: Esperado 500**
+
+Com a mensagem clara que escrevemos no `main.py `
+("verifique se o Ollama está rodando e se o chroma_db/ foi gerado").
+
+O que realmente aconteceu: 200 OK, com:
+
+```json
+{
+  "resposta": "Sim, você precisa declarar a herança de imóvel no Imposto de Renda.",
+  "fontes": []
+}
+```
+**Problema 1: o Chroma não dá erro quando a pasta não existe**
+
+Diferente do que a gente imaginava, Chroma(persist_directory="chroma_db", ...)
+não lança exceção se a pasta não existir.
+Ele simplesmente cria um banco vazio novo silenciosamente.
+Por isso o **try/except no main.py** nunca disparou:
+não houve erro nenhum do ponto de vista do código,
+só um banco sem nenhum dado.
+
+**Problema 2 (mais sério): o LLM alucinou mesmo com instrução contra isso**
+
+Sem `chroma_db`, o retriever não achou nenhum chunk ("fontes": []).
+Pelo prompt que escrevemos, o modelo deveria dizer
+ `"não encontrei essa informação"`, certo?
+Só que ele respondeu "Sim" mesmo assim. **Alucinando** uma resposta sobre um tema
+tributário sem nenhum contexto real.
+Isso é exatamente o risco que o projeto existe pra prevenir,
+e aconteceu porque o contexto ficou vazio (string vazia),
+e o modelo "preencheu a lacuna" com conhecimento próprio, ignorando a instrução.
+
+**Causa raiz (dois problemas):**
+1. `Chroma(persist_directory=..., ...)` não lança erro se a pasta não
+   existe — ele cria um banco vazio silenciosamente. Por isso o
+   `try/except` do `main.py` nunca disparava.
+2. Sem chunks recuperados, o LLM deveria dizer "não encontrei" (conforme
+   o prompt), mas alucinou uma resposta afirmativa mesmo com contexto
+   vazio — evidência de que a instrução do prompt não é 100% garantida.
+
+**Correção:** `rag_chain.py` agora verifica explicitamente se `chroma_db/`
+existe antes de conectar, levantando `FileNotFoundError` com mensagem
+clara — isso ativa corretamente o tratamento de erro no `main.py`.
+
+**Por que isso importa:** esse foi o achado mais valioso dos testes até
+agora — mostra que "o código não deu erro" não significa "o sistema está
+seguro". Alucinação silenciosa é pior que um crash visível.
+
+**Retestar após a correção:**
+- [ ] `chroma_db/` renomeada → confirmar que agora vem `500` com a
+      mensagem certa
